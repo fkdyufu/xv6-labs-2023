@@ -82,6 +82,18 @@ kvminithart()
 //   21..29 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
 //    0..11 -- 12 bits of byte offset within the page.
+
+// 返回页表中虚拟地址va翻译后的level 0页表中的PTE的地址,这个pte的值可能还是无效的。
+// 如果 alloc!=0，则创建任何所需的页表页。
+
+// RISC-V Sv39 方案有三级页表页。一个页表页包含 512 个 64 位的 PTE。
+// 一个 64 位虚拟地址被分成五个字段：
+//   39..63 -- 必须为零。
+//   30..38 -- 9 位的二级索引。
+//   21..29 -- 9 位的一级索引。
+//   12..20 -- 9 位的零级索引。
+//    0..11 -- 页内的 12 位字节偏移。
+
 pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
@@ -89,14 +101,14 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
-    pte_t *pte = &pagetable[PX(level, va)];
+    pte_t *pte = &pagetable[PX(level, va)];//PX是将level级别的9位索引提取出来
     if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
-    } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      pagetable = (pagetable_t)PTE2PA(*pte);//PTE2PA是从指定的pte中找到指向的下一级页表的地址
+    } else {//如果该pte是无效的
+      if(!alloc || (pagetable = (pagetable_t)kalloc()) == 0)//如果alloc为1,则分配一个新页,作为pte指向的页表
         return 0;
       memset(pagetable, 0, PGSIZE);
-      *pte = PA2PTE(pagetable) | PTE_V;
+      *pte = PA2PTE(pagetable) | PTE_V;//修改*pte的值,使其指向新分配的页
     }
   }
   return &pagetable[PX(0, va)];
@@ -155,8 +167,8 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   if(size == 0)
     panic("mappages: size");
   
-  a = va;
-  last = va + size - PGSIZE;
+  a = va;//a 是虚拟地址中的第一个页
+  last = va + size - PGSIZE;// last是最后一个页
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
