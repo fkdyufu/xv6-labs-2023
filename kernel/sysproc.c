@@ -74,7 +74,34 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  uint64 a, start, last;
+  int size;
+  uint64 uabits;
+  pte_t *pte;
+  struct proc *p;
+  unsigned int kabits;
+  int flag;
+
+  argaddr(0, &a);
+  argint(1, &size);
+  argaddr(2, &uabits);
+  kabits = 0;
+  flag = 1;
+  last = a + ((size - 1) * PGSIZE);
+  p = myproc();
+
+  if(size > MAXDETECTPG)
+    return -1;
+
+  for(start = a; start <= last; flag <<= 1, start += PGSIZE){
+    pte = walk(p->pagetable, start, 0);
+    if(*pte & PTE_A){
+      kabits = kabits | flag;
+      *pte = *pte & (~PTE_A);
+    }
+  }
+
+  copyout(p->pagetable, (uint64)uabits, (char*)&kabits, MAXDETECTPG);
   return 0;
 }
 #endif
