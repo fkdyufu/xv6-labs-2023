@@ -101,7 +101,42 @@ sys_pgaccess(void)
     }
   }
 
-  copyout(p->pagetable, (uint64)uabits, (char*)&kabits, MAXDETECTPG);
+  if(copyout(p->pagetable, (uint64)uabits, (char*)&kabits, sizeof(kabits)) < 0)
+    return -1;
+  return 0;
+}
+
+uint64
+sys_pgdirty(void)
+{
+  uint64 a, start, last;
+  int size;
+  uint64 udbits;
+  pte_t *pte;
+  struct proc *p;
+  unsigned int kdbits;
+  int flag;
+
+  argaddr(0, &a);
+  argint(1, &size);
+  argaddr(2, &udbits);
+  kdbits = 0;
+  flag = 1;
+  last = a + ((size - 1) * PGSIZE);
+  p = myproc();
+
+  if(size > MAXDETECTPG)
+    return -1;
+
+  for(start = a; start <= last; flag <<= 1, start += PGSIZE){
+    pte = walk(p->pagetable, start, 0);
+    if(*pte & PTE_D){
+      kdbits = kdbits | flag;
+      *pte = *pte & (~PTE_D);
+    }
+  }
+  if(copyout(p->pagetable, (uint64)udbits, (char*)&kdbits, sizeof(kdbits)) < 0)
+    return -1;
   return 0;
 }
 #endif

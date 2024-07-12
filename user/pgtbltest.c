@@ -6,12 +6,14 @@
 
 void ugetpid_test();
 void pgaccess_test();
+void pgdirty_test();
 
 int
 main(int argc, char *argv[])
 {
   ugetpid_test();
   pgaccess_test();
+  pgdirty_test();
   printf("pgtbltest: all tests succeeded\n");
   exit(0);
 }
@@ -67,4 +69,25 @@ pgaccess_test()
     err("incorrect access bits set");
   free(buf);
   printf("pgaccess_test: OK\n");
+}
+
+void
+pgdirty_test()
+{
+  char *buf;
+  unsigned int dbits;
+  printf("pgdirty_test starting\n");
+  testname = "pgdirty_test";
+  buf = malloc(32 * PGSIZE);
+  if (pgdirty(buf, 32, &dbits) < 0)
+    err("pgdirty failed");
+  buf[PGSIZE * 1] += 1;
+  buf[PGSIZE * 2] += 1;
+  buf[PGSIZE * 30] += 1;
+  if (pgdirty(buf, 32, &dbits) < 0)
+    err("pgdirty failed");
+  if (dbits != ((1 << 1) | (1 << 2) | (1 << 30)))
+    err("incorrect dirty bits set");
+  free(buf);
+  printf("pgdirty_test: OK\n");
 }
